@@ -13,7 +13,14 @@ spring:
     hibernate:
       ddl-auto: create-drop
     open-in-view: false
-
+management:
+  endpoints:
+    web:
+      exposure:
+        include:
+          - health
+          - env
+          - configprops
 # Lab-spezifische Konfiguration.
 # JWKS intern ueber den Container-Servicenamen, Issuer-Validierung gegen die browser-sichtbare URL.
 # Defaults zielen auf das docker-compose-Setup; per Env-Var (LAB_JWKS_URI etc.) ueberschreibbar.
