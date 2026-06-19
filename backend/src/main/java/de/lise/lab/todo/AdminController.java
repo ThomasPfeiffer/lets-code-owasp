@@ -16,11 +16,7 @@ public class AdminController {
         this.service = service;
     }
 
-    /**
-     * Liefert alle Todos aller Benutzer. Nur Rolle {@code admin}.
-     */
     @GetMapping("/todos")
-    @PreAuthorize("hasRole('admin')")
     public List<TodoResponse> listAll() {
         return service.listAll().stream()
                 .map(TodoResponse::from)
