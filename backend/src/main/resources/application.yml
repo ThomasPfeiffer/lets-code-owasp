@@ -1,0 +1,34 @@
+server:
+  port: 3011
+
+spring:
+  application:
+    name: lab-backend
+  datasource:
+    url: jdbc:h2:mem:labdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    open-in-view: false
+management:
+  endpoints:
+    web:
+      exposure:
+        include:
+          - health
+          - env
+          - configprops
+# Lab-spezifische Konfiguration.
+# JWKS intern ueber den Container-Servicenamen, Issuer-Validierung gegen die browser-sichtbare URL.
+# Defaults zielen auf das docker-compose-Setup; per Env-Var (LAB_JWKS_URI etc.) ueberschreibbar.
+lab:
+  jwks-uri: ${LAB_JWKS_URI:http://keycloak:3010/realms/lab/protocol/openid-connect/certs}
+  issuer-uri: ${LAB_ISSUER_URI:http://localhost:3010/realms/lab}
+  cors-origin: ${LAB_CORS_ORIGIN:http://localhost:3012}
+
+logging:
+  level:
+    org.springframework.security: INFO

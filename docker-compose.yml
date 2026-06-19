@@ -1,0 +1,102 @@
+# Lets-Code OWASP — Security-Training-Lab (sichere Baseline)
+#
+# Ein einziger `docker compose up` startet Keycloak, Backend und Frontend end-to-end.
+# Bridge-Netzwerk (Compose-Default), damit das Verhalten auf macOS, Windows, Linux,
+# Docker Desktop UND Podman identisch ist. KEIN network_mode: host, KEINE /etc/hosts-Eingriffe.
+#
+# Ports:
+#   Keycloak  -> 3010
+#   Backend   -> 3011
+#   Frontend  -> 3012
+#
+# Der Trick gegen das Docker-Hostname-Problem: Keycloak wird intern UND extern unter
+# Port 3010 erreichbar gemacht (KC_HTTP_PORT=3010), sodass der Issuer
+# `http://localhost:3010/realms/lab` sowohl im Browser als auch (per Service-Name
+# `keycloak:3010`) im Backend konsistent ist.
+
+services:
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    command:
+      - start-dev
+      - --import-realm
+    environment:
+      # Admin-Konsole (nur Lab)
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      # Keycloak lauscht direkt auf 3010 — gleicher Port intern wie extern,
+      # damit Issuer `localhost:3010` und interner Servicename `keycloak:3010` denselben
+      # Pfad/Port liefern.
+      KC_HTTP_PORT: "3010"
+      KC_HOSTNAME_STRICT: "false"
+      KC_HTTP_ENABLED: "true"
+    ports:
+      - "3010:3010"
+    volumes:
+      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+    networks:
+      - lab
+    healthcheck:
+      # Keycloak 26 hat kein curl im Image; nutze das eingebaute /health über den
+      # Management-Port-fallback via bash /dev/tcp.
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/3010 && echo -e 'GET /realms/lab HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && cat <&3 | grep -q '200\\|301\\|302'"]
+      interval: 5s
+      timeout: 5s
+      retries: 40
+      start_period: 30s
+
+  backend:
+    build:
+      context: ./backend
+    environment:
+      # JWKS wird intern über den Service-Namen geladen ...
+      LAB_JWKS_URI: "http://keycloak:3010/realms/lab/protocol/openid-connect/certs"
+      # ... der Issuer wird gegen die browser-sichtbare URL validiert.
+      LAB_ISSUER_URI: "http://localhost:3010/realms/lab"
+      # CORS-Origin des Frontends.
+      LAB_CORS_ORIGIN: "http://localhost:3012"
+      # Spring DevTools Restart explizit aktiv.
+      SPRING_DEVTOOLS_RESTART_ENABLED: "true"
+      # Im Container greift der Datei-Watcher des Gradle-Continuous-Builds (-t) auf
+      # gemountete Quellen zuverlaessiger per Polling zu (Bind-Mount, macOS/Windows).
+      SPRING_DEVTOOLS_RESTART_POLL_INTERVAL: "1s"
+      SPRING_DEVTOOLS_RESTART_QUIET_PERIOD: "400ms"
+    ports:
+      - "3011:3011"
+    volumes:
+      # Source-Mount: Host-Aenderungen werden im Container sichtbar. Der Gradle-Continuous-
+      # Build (CMD `gradle -t bootRun`) kompiliert sie nach build/classes; Spring DevTools
+      # erkennt die geaenderte Klasse und startet den Context neu -> Auto-Restart (Issue 04).
+      - ./backend/src:/workspace/src:ro
+      - ./backend/build.gradle.kts:/workspace/build.gradle.kts:ro
+      - ./backend/settings.gradle.kts:/workspace/settings.gradle.kts:ro
+    depends_on:
+      keycloak:
+        condition: service_healthy
+    networks:
+      - lab
+
+  frontend:
+    build:
+      context: ./frontend
+    environment:
+      # Browser-sichtbare URLs (vom Vite-Dev-Server an den Client gereicht).
+      VITE_OIDC_AUTHORITY: "http://localhost:3010/realms/lab"
+      VITE_OIDC_CLIENT_ID: "lab-spa"
+      VITE_OIDC_REDIRECT_URI: "http://localhost:3012/"
+      VITE_API_BASE_URL: "http://localhost:3011"
+    ports:
+      - "3012:3012"
+    volumes:
+      # Bind-Mount fuer Hot-Reload. node_modules bleibt im Container.
+      - ./frontend/src:/app/src
+      - ./frontend/index.html:/app/index.html
+      - ./frontend/public:/app/public
+    depends_on:
+      - backend
+    networks:
+      - lab
+
+networks:
+  lab:
+    driver: bridge

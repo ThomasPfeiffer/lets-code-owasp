@@ -1,0 +1,14 @@
+# Backend (Gradle)
+backend/.gradle/
+backend/build/
+
+# Frontend (Node/Vite)
+frontend/node_modules/
+frontend/dist/
+frontend/*.tsbuildinfo
+
+# IDE / OS
+.idea/
+*.iml
+.vscode/
+.DS_Store

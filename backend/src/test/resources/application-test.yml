@@ -1,0 +1,7 @@
+# Test-Profil: gleiche App, aber der echte JwtDecoder (Netzwerk zu Keycloak) wird durch einen
+# Stub ersetzt (siehe TestSecurityConfig). Issuer-/JWKS-Werte sind hier irrelevant, weil die
+# Tests JWTs ueber den jwt()-RequestPostProcessor simulieren.
+lab:
+  jwks-uri: http://localhost:0/certs
+  issuer-uri: http://localhost:3010/realms/lab
+  cors-origin: http://localhost:3012
