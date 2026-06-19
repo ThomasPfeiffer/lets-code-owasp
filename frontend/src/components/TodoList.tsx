@@ -160,7 +160,7 @@ export function TodoList() {
                 </>
               ) : (
                 <>
-                  <span className="title">{todo.title}</span>
+                  <span className="title" dangerouslySetInnerHTML={{ __html: todo.title }} />
                   <div className="actions">
                     <button type="button" onClick={() => startEdit(todo)} disabled={busy}>
                       Bearbeiten

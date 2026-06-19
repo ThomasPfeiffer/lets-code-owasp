@@ -59,7 +59,7 @@ export function AdminTodos() {
                 <td>
                   <strong>{todo.owner}</strong>
                 </td>
-                <td>{todo.title}</td>
+                <td dangerouslySetInnerHTML={{ __html: todo.title }} />
                 <td>{todo.done ? "erledigt" : "offen"}</td>
               </tr>
             ))}
